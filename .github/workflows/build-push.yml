@@ -27,9 +27,7 @@ jobs:
     name: Detect changed services
     runs-on: ubuntu-latest
     outputs:
-      gateway:  ${{ steps.filter.outputs.gateway }}
-      products: ${{ steps.filter.outputs.products }}
-      orders:   ${{ steps.filter.outputs.orders }}
+      services: ${{ steps.set.outputs.services }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,15 +53,25 @@ jobs:
               - 'go.mod'
               - 'go.sum'
 
+      - id: set
+        name: Build dynamic service list
+        run: |
+          services="[]"
+          [[ "${{ steps.filter.outputs.gateway }}"  == "true" ]] && services=$(jq -nc --argjson s "$services" '$s + ["gateway"]')
+          [[ "${{ steps.filter.outputs.products }}" == "true" ]] && services=$(jq -nc --argjson s "$services" '$s + ["products"]')
+          [[ "${{ steps.filter.outputs.orders }}"   == "true" ]] && services=$(jq -nc --argjson s "$services" '$s + ["orders"]')
+          echo "services=$services" >> "$GITHUB_OUTPUT"
+          echo "Services to build: $services"
+
   build:
     name: Build & push ${{ matrix.service }}
     needs: detect
+    if: needs.detect.outputs.services != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        service: [gateway, products, orders]
-    if: needs.detect.outputs[matrix.service] == 'true'
+        service: ${{ fromJSON(needs.detect.outputs.services) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
