@@ -103,7 +103,6 @@ jobs:
           push: true
           tags: |
             ${{ steps.tag.outputs.image }}:sha-${{ steps.tag.outputs.short_sha }}
-            ${{ steps.tag.outputs.image }}:dev
           provenance: false
           build-args: |
             SERVICE=${{ matrix.service }}
@@ -113,7 +112,7 @@ jobs:
         run: |
           echo "### Pushed shopxpress-${{ matrix.service }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Tag: \`sha-${{ steps.tag.outputs.short_sha }}\` + \`dev\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tag: \`sha-${{ steps.tag.outputs.short_sha }}\` (immutable)" >> "$GITHUB_STEP_SUMMARY"
           echo "- Registry: ${{ env.ECR_REGISTRY }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Commit: ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
 
