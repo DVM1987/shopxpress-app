@@ -48,7 +48,7 @@ func main() {
 	mux.Handle("/api/orders/", newProxy(ordersURL, log))
 
 	port := getEnv("PORT", "8080")
-	log.Info("gateway starting", "port", port, "ci_cd", "buoi-6-bot-bump-tag")
+	log.Info("gateway starting", "port", port, "ci_cd", "buoi-6-bot-bump-tag", "version", "v2")
 	if err := http.ListenAndServe(":"+port, mux); err != nil {
 		log.Error("server failed", "err", err)
 		os.Exit(1)
