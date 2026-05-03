@@ -1,0 +1,113 @@
+name: build-push
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/**'
+      - '.github/workflows/build-push.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: build-push-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: ap-southeast-1
+  AWS_ACCOUNT_ID: '527055790396'
+  ECR_REGISTRY: 527055790396.dkr.ecr.ap-southeast-1.amazonaws.com
+  IAM_ROLE_ARN: arn:aws:iam::527055790396:role/shopxpress-gha-ecr-push
+
+jobs:
+  detect:
+    name: Detect changed services
+    runs-on: ubuntu-latest
+    outputs:
+      gateway:  ${{ steps.filter.outputs.gateway }}
+      products: ${{ steps.filter.outputs.products }}
+      orders:   ${{ steps.filter.outputs.orders }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            gateway:
+              - 'services/gateway/**'
+              - 'pkg/**'
+              - 'go.mod'
+              - 'go.sum'
+            products:
+              - 'services/products/**'
+              - 'pkg/**'
+              - 'go.mod'
+              - 'go.sum'
+            orders:
+              - 'services/orders/**'
+              - 'pkg/**'
+              - 'go.mod'
+              - 'go.sum'
+
+  build:
+    name: Build & push ${{ matrix.service }}
+    needs: detect
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [gateway, products, orders]
+    if: needs.detect.outputs[matrix.service] == 'true'
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.IAM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-${{ github.run_id }}-${{ matrix.service }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Compute image tag
+        id: tag
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image=${{ env.ECR_REGISTRY }}/shopxpress-${{ matrix.service }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./services/${{ matrix.service }}
+          file: ./services/${{ matrix.service }}/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.tag.outputs.image }}:sha-${{ steps.tag.outputs.short_sha }}
+            ${{ steps.tag.outputs.image }}:dev
+          provenance: false
+          build-args: |
+            SERVICE=${{ matrix.service }}
+            VERSION=sha-${{ steps.tag.outputs.short_sha }}
+
+      - name: Summary
+        run: |
+          echo "### Pushed shopxpress-${{ matrix.service }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tag: \`sha-${{ steps.tag.outputs.short_sha }}\` + \`dev\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Registry: ${{ env.ECR_REGISTRY }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
