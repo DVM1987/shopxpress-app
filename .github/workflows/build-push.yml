@@ -3,9 +3,6 @@ name: build-push
 on:
   push:
     branches: [main]
-    paths:
-      - 'services/**'
-      - '.github/workflows/build-push.yml'
   workflow_dispatch:
 
 permissions:

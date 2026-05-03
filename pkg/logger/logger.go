@@ -10,3 +10,4 @@ func New(service string) *slog.Logger {
 	return slog.New(h).With("service", service)
 }
 
+
