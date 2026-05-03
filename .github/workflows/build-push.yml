@@ -175,11 +175,11 @@ jobs:
           git config user.email "shopxpress-bot@noreply.github.com"
           git config user.name "shopxpress-deploy-bot"
           git add services/${{ matrix.service }}/values-dev.yaml
-          git commit -m "bot: bump ${{ matrix.service }} dev tag to ${{ steps.tag.outputs.new_tag }} [skip ci]
-
-Source repo: ${{ github.repository }}
-Source commit: ${{ github.sha }}
-Workflow: ${{ github.workflow }} run ${{ github.run_id }}"
+          git commit \
+            -m "bot: bump ${{ matrix.service }} dev tag to ${{ steps.tag.outputs.new_tag }} [skip ci]" \
+            -m "Source repo: ${{ github.repository }}" \
+            -m "Source commit: ${{ github.sha }}" \
+            -m "Workflow: ${{ github.workflow }} run ${{ github.run_id }}"
           git push origin main
 
       - name: Summary
